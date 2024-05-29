@@ -65,10 +65,16 @@ def dataCrawlling(codeList, date):
         if i == 0:
             data = PDFListing(isuCd, code, name, date)
             time.sleep(0.5)
-        else :
+        # else :
+        #     tmp = PDFListing(isuCd, code, name, date)
+        #     data = pd.concat([data, tmp])
+        #     time.sleep(0.5)
+        elif i < 3 : 
             tmp = PDFListing(isuCd, code, name, date)
             data = pd.concat([data, tmp])
             time.sleep(0.5)
+        else :
+            break
 
     return data.reset_index(drop = True)
 
