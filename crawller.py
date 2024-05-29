@@ -61,15 +61,16 @@ def PDFListing(isuCd, code, name, date) :
 def dataCrawlling(codeList, date):
 
     for i, (isuCd, code, name) in enumerate(zip(codeList['표준코드'], codeList['단축코드'], codeList['한글종목약명'])):
-        print(i, isuCd, code, name)
+
         if i == 0:
             data = PDFListing(isuCd, code, name, date)
             time.sleep(0.5)
-        else:
+        else :
             tmp = PDFListing(isuCd, code, name, date)
             data = pd.concat([data, tmp])
             time.sleep(0.5)
-    return data
+
+    return data.reset_index(drop = True)
 
 
 if __name__ == '__main__' :
