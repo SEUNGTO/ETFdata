@@ -70,6 +70,10 @@ def dataCrawlling(codeList, date):
             data = pd.concat([data, tmp])
             time.sleep(0.5)
 
+        data.insert(0, 'ETF코드', code)
+        data = data.drop('시가총액', axis=1)
+        data.columns = ['etf_code', 'stock_code', 'stock_nm', 'stock_amn', 'evl_amt', 'ratio']
+
     return data.reset_index(drop = True)
 
 
