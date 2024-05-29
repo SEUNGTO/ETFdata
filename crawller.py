@@ -59,20 +59,24 @@ def PDFListing(isuCd, code, name, date) :
     return data
 
 def dataCrawlling(codeList, date):
-    
+
 
     for i, (isuCd, code, name) in enumerate(zip(codeList['표준코드'], codeList['단축코드'], codeList['한글종목약명'])):
 
         if i == 0:
             data = PDFListing(isuCd, code, name, date)
-            time.sleep(0.5)
-        else :
-            tmp = PDFListing(isuCd, code, name, date)
-            data = pd.concat([data, tmp])
+            data.insert(0, 'ETF코드', code)
             time.sleep(0.5)
 
-        data.insert(0, 'ETF코드', code)
-        data = data.drop('시가총액', axis=1)
+        else :
+            tmp = PDFListing(isuCd, code, name, date)
+            tmp.insert(0, 'ETF코드', code)
+            data = data.drop('시가총액', axis=1)
+
+            data = pd.concat([data, tmp])
+            time.sleep(0.5)
+        
+
 
     data.columns = ['etf_code', 'stock_code', 'stock_nm', 'stock_amn', 'evl_amt', 'ratio']
 
