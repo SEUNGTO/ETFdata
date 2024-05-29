@@ -66,12 +66,13 @@ def dataCrawlling(codeList, date):
         if i == 0:
             data = PDFListing(isuCd, code, name, date)
             data.insert(0, 'ETF코드', code)
+            data = data.drop('시가총액', axis=1)
             time.sleep(0.5)
 
         else :
             tmp = PDFListing(isuCd, code, name, date)
             tmp.insert(0, 'ETF코드', code)
-            data = data.drop('시가총액', axis=1)
+            tmp = tmp.drop('시가총액', axis=1)
 
             data = pd.concat([data, tmp])
             time.sleep(0.5)
