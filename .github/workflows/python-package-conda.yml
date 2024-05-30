@@ -9,8 +9,9 @@ on:
     branches: [ "main" ]
 
   schedule:
-    # 한국시간 평일 17시
-    - cron: '0 9 * * 2-6'
+    # 한국시간 기준 매일 오전 1시에 실행
+    - cron: '0 10 * * *'
+     
 
 jobs:
   
