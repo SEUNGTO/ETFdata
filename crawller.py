@@ -6,6 +6,82 @@ import pytz
 from datetime import datetime, timedelta
 import FinanceDataReader as fdr
 
+import re
+from bs4 import BeautifulSoup
+
+def find_Recent_nid() :
+    url = 'https://finance.naver.com/research/company_list.naver?&page=1'
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    href = soup.find('div', class_ = 'box_type_m').find_all('a')[1].attrs['href']
+    nid = re.sub(r"(.*)([0-9]{5,6})(.*)", "\g<2>", href)
+
+    return nid
+
+def researchCrawlling(nid) :
+    result = {
+        'stock_name': [],
+        'code': [],
+        'title': [],
+        'nid': [],
+        'target_price': [],
+        'opinion': [],
+        'date': [],
+        'researcher': [],
+        'link' : []
+    }
+
+    link = f'https://m.stock.naver.com/investment/research/company/{nid}'
+    response = requests.get(link)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    body = soup.find('div', class_ = 'ResearchContent_article__jjmeq')
+
+    info = body.find('div', class_ = 'HeaderResearch_article__j3dPb')
+    code = info.find('em', class_ = 'HeaderResearch_code__RmsRt').text
+    stock_name = info.find('em', class_ = 'HeaderResearch_tag__7owlF').text
+    stock_name = stock_name.replace(code, "")
+    title = info.find('h3', class_ = 'HeaderResearch_title__cnBST').text
+    researcher = info.find('cite', class_ = 'HeaderResearch_description__qH6Bs').text
+    date = info.find('time', class_ = 'HeaderResearch_description__qH6Bs').text
+
+
+    consensus = body.find('div', class_ = 'ResearchConsensus_article__YZ7oY')
+    consensus = consensus.find_all('span', class_ = 'ResearchConsensus_text__XNJAT')
+    opinion = consensus[0].text
+    target_price = re.sub("\D", "", consensus[1].text)
+
+    result['stock_name'].append(stock_name)
+    result['code'].append(code)
+    result['title'].append(title)
+    result['nid'].append(nid)
+    result['researcher'].append(researcher)
+    result['date'].append(date)
+    result['target_price'].append(target_price)
+    result['opinion'].append(opinion)
+    result['link'].append(link)
+
+    return result
+
+def load_research() :
+    url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/research.json'
+    response = requests.get(url).json()
+    research = pd.DataFrame(response)
+    return research
+
+
+def clear_old_research(research, period) :
+
+    testee = research[['게시일자', 'nid']]
+    tz = pytz.timezone('Asia/Seoul')
+    now = datetime.now(tz)
+    testee.loc[:, '게시일자'] = pd.to_datetime(testee['게시일자'], format='mixed').dt.tz_localize(tz)
+
+    tt = now - timedelta(days = period)
+
+    nid_list = testee[testee['게시일자'] >= tt]['nid']
+
+    return research.loc[research['nid'].isin(nid_list), :]
+
 def code_update() :
 
     stocks = fdr.StockListing('KRX')
@@ -122,7 +198,32 @@ if __name__ == '__main__' :
     data = dataCrawlling(codeList, old_date)
     data.to_json('old_data.json')
 
-    #
+    # 코드 업데이트
     code_list = code_update()
     code_list.to_json('code_list.json')
+
+
+    # 리서치 데이터 업데이트
+    research = load_research()
+    research = clear_old_research(research)
+
+    nid_list = research['nid'].tolist()
+
+    _last_nid = max(nid_list)
+    _start_nid = str(int(_last_nid) + 1)
+    _recent_nid = find_Recent_nid()
+
+    for nid in range(int(_start_nid), int(_recent_nid)+1) :
+        time.sleep(0.5)
+        nid = str(nid)
+        try :
+            if nid == _start_nid :
+                data = pd.DataFrame(researchCrawlling(nid))
+            else  :
+                tmp = pd.DataFrame(researchCrawlling(nid))
+                data = pd.concat([data, tmp])
+        except : continue
+
+    research = pd.concat(research, data)
+    research.reset_index(drop = True).to_json('research.json')
 
