@@ -240,10 +240,10 @@ if __name__ == '__main__' :
         nid = str(nid)
         try :
             if nid == _start_nid :
-                data = pd.DataFrame(researchCrawlling(nid))
+                new_research = pd.DataFrame(researchCrawlling(nid))
             else  :
                 tmp = pd.DataFrame(researchCrawlling(nid))
-                data = pd.concat([data, tmp])
+                new_research = pd.concat([new_research, tmp])
         except : continue
     data.columns = ['종목명', '종목코드', '리포트 제목', 'nid', '목표가', '의견', '게시일자', '증권사', '링크']
     research = pd.concat([research, data])
