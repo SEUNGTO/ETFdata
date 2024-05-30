@@ -39,6 +39,7 @@ jobs:
         python -m pip install flake8 pytest requests pandas 
         python -m pip install finance-datareader
         python -m pip install bs4
+        python -m pip install plotly
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
