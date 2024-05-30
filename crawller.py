@@ -251,6 +251,6 @@ if __name__ == '__main__' :
     research.to_json('research.json')
 
     # Exponential Weighted Moving Average 계산
-    ewmdata = calcurate_target_price(research)
-    ewmdata.to_json('ewm_data.json')
+   # ewmdata = calcurate_target_price(research)
+  #  ewmdata.to_json('ewm_data.json')
 
