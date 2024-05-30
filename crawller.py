@@ -205,7 +205,7 @@ if __name__ == '__main__' :
 
     # 리서치 데이터 업데이트
     research = load_research()
-    research = clear_old_research(research)
+    research = clear_old_research(research, 180)
 
     nid_list = research['nid'].tolist()
 
