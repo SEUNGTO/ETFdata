@@ -4,6 +4,22 @@ import requests
 import pandas as pd
 import pytz
 from datetime import datetime, timedelta
+import FinanceDataReader as fdr
+
+def code_update() :
+
+    stocks = fdr.StockListing('KRX')
+    stocks = stocks.loc[:, ['Name', 'Code']]
+    stocks.columns = ['Name', 'Symbol']
+    stocks.loc[:, 'Type'] = 'Stock'
+    
+    etfs = fdr.StockListing('ETF/KR')
+    etfs = etfs.loc[:, ['Name', 'Symbol']]
+    etfs.loc[:, 'Type'] = 'ETF'
+    
+    code_list = pd.concat([stocks, etfs])
+    
+    return code_list.reset_index(drop = True)
 
 def codeListing() :
 
@@ -94,12 +110,19 @@ if __name__ == '__main__' :
     # 오늘 날짜 세팅
     tz = pytz.timezone('Asia/Seoul')
     now = datetime.now(tz)
-    new_date = now.strftime('%Y%m%d')
 
+    # 오늘 날짜 데이터 수집
+    new_date = now.strftime('%Y%m%d')
     data = dataCrawlling(codeList, new_date)
     data.to_json('new_data.json')
 
+    # 7일 전 데이터 수집
     old_date = now - timedelta(days = 7)
     old_date = old_date.strftime('%Y%m%d')
     data = dataCrawlling(codeList, old_date)
     data.to_json('old_data.json')
+
+    #
+    code_list = code_update()
+    code_list.to_json('code_list.json')
+
