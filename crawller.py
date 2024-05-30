@@ -5,9 +5,31 @@ import pandas as pd
 import pytz
 from datetime import datetime, timedelta
 import FinanceDataReader as fdr
-
 import re
 from bs4 import BeautifulSoup
+
+def calcurate_target_price(researchData) :
+
+    researchData['목표가'] = [re.sub("\D", "", v) for v in researchData['목표가']]
+    researchData = researchData[researchData['목표가'] != ""]
+    researchData.loc[:, '게시일자'] = [v.replace(".", "") for v in researchData['게시일자']]
+    researchData.loc[:, '게시일자'] = pd.to_datetime(researchData.loc[:, '게시일자'])
+    researchData.loc[:, '목표가'] = researchData.loc[:, '목표가'].astype(float)
+
+    pivot = researchData.pivot_table(index = '게시일자', columns = '종목코드', values = '목표가', aggfunc= 'mean')
+    pivot = pivot.astype(float)
+
+    start = researchData.loc[:, '게시일자'].min()
+    end = researchData.loc[:, '게시일자'].max()
+
+    period = pd.date_range(start = start, end = end, freq = 'D')
+    bs_data = pd.DataFrame([], index = period)
+    bs_data = bs_data.merge(pivot, left_index = True, right_index = True)
+
+    ewmdata = bs_data.ewm(span = 90, adjust = False).mean()
+
+    return ewmdata
+
 
 def find_Recent_nid() :
     url = 'https://finance.naver.com/research/company_list.naver?&page=1'
@@ -225,5 +247,10 @@ if __name__ == '__main__' :
         except : continue
 
     research = pd.concat(research, data)
-    research.reset_index(drop = True).to_json('research.json')
+    research = research.reset_index(drop = True)
+    research.to_json('research.json')
+
+    # Exponential Weighted Moving Average 계산
+    ewmdata = calcurate_target_price(research)
+    ewmdata.to_json('ewm_data.json')
 
