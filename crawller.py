@@ -245,7 +245,7 @@ if __name__ == '__main__' :
                 tmp = pd.DataFrame(researchCrawlling(nid))
                 data = pd.concat([data, tmp])
         except : continue
-
+    data.columns = ['종목명', '종목코드', '리포트 제목', 'nid', '목표가', '의견', '게시일자', '증권사', '링크']
     research = pd.concat([research, data])
     research = research.reset_index(drop = True)
     research.to_json('research.json')
