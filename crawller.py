@@ -246,7 +246,7 @@ if __name__ == '__main__' :
                 data = pd.concat([data, tmp])
         except : continue
 
-    research = pd.concat(research, data)
+    research = pd.concat([research, data])
     research = research.reset_index(drop = True)
     research.to_json('research.json')
 
