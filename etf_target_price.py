@@ -89,4 +89,4 @@ if __name__ == "__main__" :
         data = calcurate_etf_target_ewm(code, ewm)
         pd.concat([etf_target_price, data])
 
-    etf_target_price.to_json('etf_target_price.json')
+    # etf_target_price.to_json('etf_target_price.json')
