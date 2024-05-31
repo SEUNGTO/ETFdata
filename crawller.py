@@ -2,6 +2,7 @@ import io
 import time
 import requests
 import pandas as pd
+import numpy as np
 import pytz
 from datetime import datetime, timedelta
 import FinanceDataReader as fdr
