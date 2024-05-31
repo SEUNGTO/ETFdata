@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
-
+import FinanceDataReader as fdr
+from tqdm import tqdm
 def load_codeList() :
     url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/code_list.json'
 
@@ -31,20 +32,43 @@ def load_ewm_data() :
     ewm = requests.get(url).json()
     return ewm
 
-def target_price_by_etf(stock_list, ewm):
+
+def calcurate_etf_target_ewm(code, ewm):
+
+    # 개별 ETF들의 가중평균 목표가를 구하는 공간
+
+    etf_data = load_etf_data('new', code)
+    stock_list = etf_data['종목코드'].tolist()
+
+    tmp = pd.DataFrame({})
     for j, stock in enumerate(stock_list):
+
         try:
-            if j == 0:
-                tmp = pd.DataFrame(pd.Series(ewm[stock]), columns=[stock])
-                tmp = tmp * (etf_data.loc[etf_data['종목코드'] == stock, '비중'].values[0] / 100)
-            else:
+            if stock in ewm.keys():
                 aa = pd.DataFrame(pd.Series(ewm[stock]), columns=[stock])
-                aa = aa * (etf_data.loc[etf_data['종목코드'] == stock, '비중'].values[0] / 100)
+                # 목표가가 주어지기 이전 시점에는 종가로 대체
+                close = fdr.DataReader(stock, start=start, end=end)
+                close = pd.DataFrame(close['Close'].values, columns=[stock], index=close.index.astype(str))
+                aa = aa.fillna(close)
+
+                # 해당 종목의 가중치(보유비중) 반영
+                aa = aa * (etf_data.loc[etf_data['종목코드'] == stock, '비중'].values[0]) / 100
                 tmp = pd.concat([tmp, aa], axis=1)
+
+            else:
+                # 목표가가 아예 없는 종목은 종가로 대체
+                aa = fdr.DataReader(stock, start=start, end=end)
+                aa = pd.DataFrame(aa['Close'].values, columns=[stock], index=aa.index.astype(str))
+
+                # 해당 종목의 가중치(보유비중) 반영
+                aa = aa * (etf_data.loc[etf_data['종목코드'] == stock, '비중'].values[0]) / 100
+                tmp = pd.concat([tmp, aa], axis=1)
+
         except:
+            # Finance Data Reader에도 없는 종목은 pass
             continue
 
-    return tmp.sum(axis=1)
+    return pd.DataFrame(tmp.sum(axis=1), columns=[code])
 
 
 if __name__ == "__main__" :
@@ -52,19 +76,14 @@ if __name__ == "__main__" :
     codeList = codeList[codeList['Type'] == 'ETF']
     ewm = load_ewm_data()
 
+    start = min(ewm['005930'].keys())
+    end = max(ewm['005930'].keys())
 
-    for i, code in enumerate(codeList['Symbol']) :
-        try :
-            if i == 0 :
-                etf_data = load_etf_data('new', code)
-                stock_list = etf_data['종목코드'].tolist()
-                etf_target_price = target_price_by_etf(stock_list, ewm)
-            else :
-                etf_data = load_etf_data('new', code)
-                stock_list = etf_data['종목코드'].tolis
-                tmp = target_price_by_etf(stock_list, ewm)
-                etf_target_price = pd.concat([etf_target_price, tmp])
-        except :
-            continue
+    etf_target_price = pd.DataFrame([])
+
+    for code in tqdm(codeList['Symbol']) :
+
+        data = calcurate_etf_target_ewm(code, ewm)
+        pd.concat([etf_target_price, data])
 
     etf_target_price.to_json('etf_target_price.json')
