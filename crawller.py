@@ -8,6 +8,46 @@ import FinanceDataReader as fdr
 import re
 from bs4 import BeautifulSoup
 
+################################### ETF 종목들의 코사인 유사도 계산 ###############################
+def cosine_similarity_manual(vec1, vec2):
+    dot_product = np.dot(vec1, vec2)
+    norm_vec1 = np.linalg.norm(vec1)
+    norm_vec2 = np.linalg.norm(vec2)
+    return dot_product / (norm_vec1 * norm_vec2)
+
+def compute_similarity() :
+    url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/new_data.json'
+    response = requests.get(url)
+    data = pd.DataFrame(response.json())
+    sim_data = data[['etf_code', 'stock_code', 'ratio']]
+    pivot = sim_data.pivot_table(index = 'stock_code', columns = 'etf_code', values = 'ratio', aggfunc = 'sum')
+    pivot = pivot.fillna(0)
+
+    pivot_T = pivot.T
+
+    cosine_sim_matrix = np.zeros((pivot_T.shape[0], pivot_T.shape[0]))
+
+    # 코사인 유사도 계산
+    for i in range(pivot_T.shape[0]):
+        for j in range(pivot_T.shape[0]):
+            cosine_sim_matrix[i, j] = cosine_similarity_manual(pivot_T.iloc[i].values, pivot_T.iloc[j].values)
+
+
+    cosine_sim_df = pd.DataFrame(cosine_sim_matrix, index=pivot_T.index, columns=pivot_T.index)
+    sim_dict = {}
+    for code in pivot_T.index :
+        sim_etfs_top5 = cosine_sim_df[code].sort_values(ascending=False).head(6)
+        sim_etfs_top5 = sim_etfs_top5.index.tolist()
+        sim_etfs_top5.remove(code)
+        sim_dict[code] = sim_etfs_top5
+
+    return pd.DataFrame(sim_dict)
+
+########################################################################################
+
+
+
+########################### 종목별 목표가 계산 #############################################
 def calcurate_target_price(researchData) :
 
     researchData['목표가'] = [re.sub("\D", "", v) for v in researchData['목표가']]
@@ -29,8 +69,9 @@ def calcurate_target_price(researchData) :
     ewmdata = bs_data.ewm(span = 90, adjust = False).mean()
 
     return ewmdata
+##########################################################################################
 
-
+############### 리서치 데이터 업데이트 ################
 def find_Recent_nid() :
     url = 'https://finance.naver.com/research/company_list.naver?&page=1'
     response = requests.get(url)
@@ -104,6 +145,10 @@ def clear_old_research(research, period) :
 
     return research.loc[research['nid'].isin(nid_list), :]
 
+###################################################################
+
+
+################ 종목, ETF코드 업데이트 #################
 def code_update() :
 
     stocks = fdr.StockListing('KRX')
@@ -139,7 +184,10 @@ def codeListing() :
     data = pd.read_csv(io.BytesIO(response.content), encoding = 'euc-kr', dtype = {'단축코드': 'string'})
 
     return data
+############################################################################################################
 
+
+############################### ETF PDF 크롤링################################
 def PDFListing(isuCd, code, name, date) :
 
     headers = {'Referer' : 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader'}
@@ -197,6 +245,7 @@ def dataCrawlling(codeList, date):
 
     return data.reset_index(drop = True)
 
+##############################################################################
 
 if __name__ == '__main__' :
 
