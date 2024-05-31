@@ -2,7 +2,10 @@ import requests
 import pandas as pd
 import FinanceDataReader as fdr
 from tqdm import tqdm
+
+
 def load_codeList() :
+    
     url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/code_list.json'
 
     return pd.DataFrame(requests.get(url).json())
