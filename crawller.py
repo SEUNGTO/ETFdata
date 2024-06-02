@@ -295,10 +295,15 @@ if __name__ == '__main__' :
                 tmp = pd.DataFrame(researchCrawlling(nid))
                 new_research = pd.concat([new_research, tmp])
         except : continue
-    new_research.columns = ['종목명', '종목코드', '리포트 제목', 'nid', '목표가', '의견', '게시일자', '증권사', '링크']
+    if new_research.shape[0] != 0 :
+        new_research.columns = ['종목명', '종목코드', '리포트 제목', 'nid', '목표가', '의견', '게시일자', '증권사', '링크']
+    else :
+        new_research = pd.DataFrame([], columns = ['종목명', '종목코드', '리포트 제목', 'nid', '목표가', '의견', '게시일자', '증권사', '링크'])
+    
     research = pd.concat([research, new_research])
     research = research.reset_index(drop = True)
     research.to_json('research.json')
+
 
     # Exponential Weighted Moving Average 계산
    # ewmdata = calcurate_target_price(research)
