@@ -399,6 +399,9 @@ if __name__ == '__main__' :
 
 
     # Exponential Weighted Moving Average 계산
-   # ewmdata = calcurate_target_price(research)
-  #  ewmdata.to_json('ewm_data.json')
+    ewmdata = calcurate_target_price(research)
+    ewmdata.to_json('ewm_data.json')
 
+    # ETF 목표가 계산
+    etf_target_price = calcurate_etf_target_price()
+    etf_target_price.to_json('etf_target_price.json')
