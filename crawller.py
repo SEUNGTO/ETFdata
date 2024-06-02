@@ -378,16 +378,16 @@ if __name__ == '__main__' :
     _start_nid = str(int(_last_nid) + 1)
     _recent_nid = find_Recent_nid()
 
+
+    new_research = pd.DataFrame([])
     for nid in range(int(_start_nid), int(_recent_nid)+1) :
         time.sleep(0.5)
         nid = str(nid)
         try :
-            if nid == _start_nid :
-                new_research = pd.DataFrame(researchCrawlling(nid))
-            else  :
-                tmp = pd.DataFrame(researchCrawlling(nid))
-                new_research = pd.concat([new_research, tmp])
-        except : continue
+            tmp = pd.DataFrame(researchCrawlling(nid))
+            new_research = pd.concat([new_research, tmp])
+        except : 
+            continue
     if new_research.shape[0] != 0 :
         new_research.columns = ['종목명', '종목코드', '리포트 제목', 'nid', '목표가', '의견', '게시일자', '증권사', '링크']
     else :
