@@ -1,92 +1,213 @@
 import requests
 import pandas as pd
+import re
 import FinanceDataReader as fdr
-from tqdm import tqdm
+
+def calcurate_target_price(researchData) :
+
+    researchData['목표가'] = [re.sub("\D", "", v) for v in researchData['목표가']]
+    researchData = researchData[researchData['목표가'] != ""]
+    researchData.loc[:, '게시일자'] = researchData['게시일자'].apply(lambda x : x.replace(".", ""))
+    researchData.loc[:, '게시일자'] = pd.to_datetime(researchData.loc[:, '게시일자'])
+    researchData.loc[:, '목표가'] = researchData.loc[:, '목표가'].astype(float)
+
+    pivot = researchData.pivot_table(index = '게시일자', columns = '종목코드', values = '목표가', aggfunc= 'mean')
+    pivot = pivot.astype(float)
+
+    start = researchData.loc[:, '게시일자'].min()
+    end = researchData.loc[:, '게시일자'].max()
+
+    period = pd.date_range(start = start, end = end, freq = 'D')
+    bs_data = pd.DataFrame([], index = period)
+    bs_data = bs_data.merge(pivot, left_index = True, right_index = True)
+
+    ewmdata = bs_data.ewm(span = 90, adjust = False).mean()
+    ewmdata.index = ewmdata.index.astype(str)
+    ewmdata.reset_index(inplace = True)
+    ewmdata = ewmdata.rename(columns = {'index' : 'Date'})
+
+    return ewmdata
+
+def load_research() :
+    url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/research.json'
+    response = requests.get(url).json()
+
+    return response
+
+def calcurate_etf_target_price() :
+    research = load_research()
+    research = pd.DataFrame(research)
+    ewmdata = calcurate_target_price(research)
+
+    start = ewmdata[['Date']].min().values[0]
+    end = ewmdata[['Date']].max().values[0]
+
+    codeList = ewmdata.columns
+    codeList = codeList.drop('Date')
+
+    price_data = pd.DataFrame({})
+    for code in codeList :
+        tmp = fdr.DataReader(code, start = start, end = end)['Close']
+        tmp.fillna(method = 'bfill', inplace = True)
+        tmp.name = code
+        price_data = pd.concat([price_data, tmp], axis = 1)
+
+    # index 속성 맞추기
+    ewmdata.index = ewmdata['Date']
+    price_data.index = [str(idx)[:10] for idx in price_data.index]
+    ewmdata.fillna(price_data, inplace = True)
+    ewmdata.fillna(method = 'bfill', inplace = True)
 
 
-def load_codeList() :
-    
-    url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/code_list.json'
-
-    return pd.DataFrame(requests.get(url).json())
-
-def load_etf_data(type, code) :
-
-    if type == 'old' :
-        url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/old_data.json'
-
-    elif type == 'new' :
-        url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/new_data.json'
-
-    tmp = requests.get(url)
-    tmp = pd.DataFrame(tmp.json(), dtype = str)
-
-    tmp = tmp.loc[tmp['etf_code'] == code, :]
-    tmp = tmp.drop('etf_code', axis = 1)
-    tmp.columns = ['종목코드', '종목명', '보유량', '평가금액', '비중']
-    tmp['보유량'] = tmp['보유량'].astype(float)
-    tmp['평가금액'] = tmp['평가금액'].astype(float)
-    tmp['비중'] = tmp['비중'].astype(float)
-
-    return tmp
-
-def load_ewm_data() :
-    url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/ewm_data.json'
-    ewm = requests.get(url).json()
-    return ewm
+    ### ETF 데이터 불러오기
+    url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/new_data.json'
+    response = requests.get(url)
+    etf_data = pd.DataFrame(response.json())
 
 
-def calcurate_etf_target_ewm(code, ewm):
+    # 종가를 저장할 데이터 프레임 만들어두기  ## 로드시간 최소화
+    stock_mkt_price = pd.DataFrame({})
 
-    # 개별 ETF들의 가중평균 목표가를 구하는 공간
+    # ETF별로 구한 최종 목표가를 저장할 데이터 프레임 생성
+    etf_target_price = pd.DataFrame({})
 
-    etf_data = load_etf_data('new', code)
-    stock_list = etf_data['종목코드'].tolist()
+    for etf_code in etf_data['etf_code'].unique() :
 
-    tmp = pd.DataFrame({})
-    for j, stock in enumerate(stock_list):
+        tmp = etf_data[etf_data['etf_code'] == etf_code]
 
-        try:
-            if stock in ewm.keys():
-                aa = pd.DataFrame(pd.Series(ewm[stock]), columns=[stock])
-                # 목표가가 주어지기 이전 시점에는 종가로 대체
-                close = fdr.DataReader(stock, start=start, end=end)
-                close = pd.DataFrame(close['Close'].values, columns=[stock], index=close.index.astype(str))
-                aa = aa.fillna(close)
+        # 목표가가 있는 경우
+        in_ewm = [code for code in tmp['stock_code'] if code in ewmdata.columns]
+        ratio = [tmp.loc[tmp['stock_code'] == stock_code, 'ratio'].values[0] for stock_code in in_ewm]
+        in_ewm_price = ewmdata[in_ewm] * ratio / 100
+        in_ewm_price = in_ewm_price.sum(axis = 1)
 
-                # 해당 종목의 가중치(보유비중) 반영
-                aa = aa * (etf_data.loc[etf_data['종목코드'] == stock, '비중'].values[0]) / 100
-                tmp = pd.concat([tmp, aa], axis=1)
+        # 목표가가 없는 경우 -> 종가로 대체
+        out_ewm = [code for code in tmp['stock_code'] if code not in ewmdata.columns]
+        out_ewm_price = pd.DataFrame({})
 
-            else:
-                # 목표가가 아예 없는 종목은 종가로 대체
-                aa = fdr.DataReader(stock, start=start, end=end)
-                aa = pd.DataFrame(aa['Close'].values, columns=[stock], index=aa.index.astype(str))
+        for stock_code in out_ewm :
+            if len(re.sub("\d", "", stock_code)) == 0 :
+                try :
+                    if stock_code in stock_mkt_price.columns :
+                        out_ewm_price = pd.concat([out_ewm_price, stock_mkt_price[stock_code]], axis = 1)
 
-                # 해당 종목의 가중치(보유비중) 반영
-                aa = aa * (etf_data.loc[etf_data['종목코드'] == stock, '비중'].values[0]) / 100
-                tmp = pd.concat([tmp, aa], axis=1)
+                    elif stock_code not in stock_mkt_price.columns :
+                        tmp_stock_price = fdr.DataReader(stock_code, start = start, end = end)
+                        tmp_stock_price.index = [str(idx)[:10] for idx in tmp_stock_price.index]
+                        tmp_stock_price = tmp_stock_price['Close']
+                        tmp_stock_price.fillna(method = 'bfill', inplace = True)
+                        tmp_stock_price.name = stock_code
 
-        except:
-            # Finance Data Reader에도 없는 종목은 pass
-            continue
+                        out_ewm_price = pd.concat([out_ewm_price, tmp_stock_price], axis = 1)
 
-    return pd.DataFrame(tmp.sum(axis=1), columns=[code])
+                        # stock_mkt_price에도 저장
+                        stock_mkt_price = pd.concat([stock_mkt_price, tmp_stock_price], axis = 1)
+
+                except :
+                    continue
+            else :
+                continue
+
+        # 검색되는 경우만 load
+        ratio = [tmp.loc[tmp['stock_code'] == stock_code, 'ratio'].values[0] for stock_code in out_ewm_price.columns]
+
+        out_ewm_price = out_ewm_price * ratio / 100
+        out_ewm_price = out_ewm_price.sum(axis = 1)
+
+        # 합치기
+        final = out_ewm_price + in_ewm_price
+        final.name = etf_code
+
+        etf_target_price = pd.concat([etf_target_price, final], axis = 1)
+
+    return etf_target_price
 
 
-if __name__ == "__main__" :
-    codeList = load_codeList()
-    codeList = codeList[codeList['Type'] == 'ETF']
-    ewm = load_ewm_data()
 
-    start = min(ewm['005930'].keys())
-    end = max(ewm['005930'].keys())
 
-    etf_target_price = pd.DataFrame([])
+if __name__ == '__main__' :
 
-    for code in tqdm(codeList['Symbol']) :
+    research = load_research()
+    research = pd.DataFrame(research)
+    ewmdata = calcurate_target_price(research)
 
-        data = calcurate_etf_target_ewm(code, ewm)
-        pd.concat([etf_target_price, data])
+    start = ewmdata[['Date']].min().values[0]
+    end = ewmdata[['Date']].max().values[0]
 
-    # etf_target_price.to_json('etf_target_price.json')
+    codeList = ewmdata.columns
+    codeList = codeList.drop('Date')
+
+    price_data = pd.DataFrame({})
+    for code in codeList :
+        tmp = fdr.DataReader(code, start = start, end = end)['Close']
+        tmp.fillna(method = 'bfill', inplace = True)
+        tmp.name = code
+        price_data = pd.concat([price_data, tmp], axis = 1)
+
+    # index 속성 맞추기
+    ewmdata.index = ewmdata['Date']
+    price_data.index = [str(idx)[:10] for idx in price_data.index]
+    ewmdata.fillna(price_data, inplace = True)
+    ewmdata.fillna(method = 'bfill', inplace = True)
+
+
+    ### ETF 데이터 불러오기
+    url = 'https://raw.githubusercontent.com/SEUNGTO/ETFdata/main/new_data.json'
+    response = requests.get(url)
+    etf_data = pd.DataFrame(response.json())
+
+
+    # 종가를 저장할 데이터 프레임 만들어두기  ## 로드시간 최소화
+    stock_mkt_price = pd.DataFrame({})
+
+    # ETF별로 구한 최종 목표가를 저장할 데이터 프레임 생성
+    etf_target_price = pd.DataFrame({})
+
+
+    for etf_code in etf_data['etf_code'].unique() :
+
+        tmp = etf_data[etf_data['etf_code'] == etf_code]
+
+        # 목표가가 있는 경우
+        in_ewm = [code for code in tmp['stock_code'] if code in ewmdata.columns]
+        ratio = [tmp.loc[tmp['stock_code'] == stock_code, 'ratio'].values[0] for stock_code in in_ewm]
+        in_ewm_price = ewmdata[in_ewm] * ratio / 100
+        in_ewm_price = in_ewm_price.sum(axis = 1)
+
+        # 목표가가 없는 경우 -> 종가로 대체
+        out_ewm = [code for code in tmp['stock_code'] if code not in ewmdata.columns]
+        out_ewm = [code for code in out_ewm if len(re.sub("\d", "", code)) == 0]
+
+        out_ewm_price = pd.DataFrame({})
+
+        for stock_code in out_ewm :
+            try :
+                if stock_code in stock_mkt_price.columns :
+                    out_ewm_price = pd.concat([out_ewm_price, stock_mkt_price[stock_code]], axis = 1)
+
+                elif stock_code not in stock_mkt_price.columns :
+                    tmp_stock_price = fdr.DataReader(stock_code, start = start, end = end)
+                    tmp_stock_price.index = [str(idx)[:10] for idx in tmp_stock_price.index]
+                    tmp_stock_price = tmp_stock_price['Close']
+                    tmp_stock_price.fillna(method = 'bfill', inplace = True)
+                    tmp_stock_price.name = stock_code
+
+                    out_ewm_price = pd.concat([out_ewm_price, tmp_stock_price], axis = 1)
+
+                    # stock_mkt_price에 업데이트
+                    stock_mkt_price = pd.concat([stock_mkt_price, tmp_stock_price], axis = 1)
+
+            except :
+                continue
+
+        # 검색되는 경우만 load
+        ratio = [tmp.loc[tmp['stock_code'] == stock_code, 'ratio'].values[0] for stock_code in out_ewm_price.columns]
+
+        out_ewm_price = out_ewm_price * ratio / 100
+        out_ewm_price = out_ewm_price.sum(axis = 1)
+
+        # 합치기
+        final = sum(out_ewm_price, in_ewm_price)
+        final.name = etf_code
+
+        etf_target_price = pd.concat([etf_target_price, final], axis = 1)
