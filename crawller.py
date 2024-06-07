@@ -397,6 +397,8 @@ if __name__ == '__main__' :
     research = research.reset_index(drop = True)
     research.to_json('research.json')
 
+    nid_list = reseach[['nid']]
+    nid_list.to_json('nid_list.json')
 
     # Exponential Weighted Moving Average 계산
     ewmdata = calcurate_target_price(research)
