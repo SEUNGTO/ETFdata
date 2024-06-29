@@ -37,10 +37,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest requests pandas 
-        python -m pip install finance-datareader
+        python -m pip install flake8 requests pandas google-cloud-storage oracledb sqlalchemy 
+        python -m pip install finance-datareader plotly
         python -m pip install bs4
-        python -m pip install plotly
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
@@ -49,6 +48,27 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run crawlling
+      env:
+        STORAGE_NAME: ${{ secrets.STORAGE_NAME }}
+        WALLET_FILE: ${{ secrets.WALLET_FILE }}
+        
+        GCP_TYPE: ${{ secrets.GCP_TYPE }}
+        GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        GCP_PRIVATE_KEY_ID: ${{ secrets.GCP_PRIVATE_KEY_ID }}
+        GCP_PRIVATE_KEY: ${{ secrets.GCP_PRIVATE_KEY }}
+        GCP_CLIENT_EMAIL: ${{ secrets.GCP_CLIENT_EMAIL }}
+        GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
+        GCP_AUTH_URI: ${{ secrets.GCP_AUTH_URI }}
+        GCP_TOKEN_URI: ${{ secrets.GCP_TOKEN_URI }}
+        GCP_PROVIDER_URL: ${{ secrets.GCP_PROVIDER_URL }}
+        GCP_CLIENT_URL: ${{ secrets.GCP_CLIENT_URL }}
+        GCP_UNIV_DOMAIN: ${{ secrets.GCP_UNIV_DOMAIN }}
+
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_DSN: ${{ secrets.DB_DSN }}
+        DB_WALLET_PASSWORD: ${{ secrets.DB_WALLET_PASSWORD }}
+
       run: |
         python "crawller.py"
     - name: commit
