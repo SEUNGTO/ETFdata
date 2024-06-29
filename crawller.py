@@ -393,6 +393,8 @@ def dataCrawlling(codeList, date):
 
 if __name__ == '__main__':
 
+    engine = create_db_engine()
+
     # 코드 불러오기
     codeList = codeListing()
     codeList = codeList[(codeList['기초시장분류'] == '국내') & (codeList['기초자산분류'] == '주식')]
