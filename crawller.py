@@ -322,7 +322,7 @@ def load_KRX_code_Stock():
     down_params = {'code': otp}
     response = requests.post(down_url, params=down_params, headers=headers)
     data = pd.read_csv(io.BytesIO(response.content), encoding='euc-kr', dtype={'단축코드': 'string'})
-    data = data[['단축코드', '한글 종목약명']]
+    data = data[['한글 종목약명', '단축코드']]
     data.columns = ['Name', 'Symbol']
 
     return data
