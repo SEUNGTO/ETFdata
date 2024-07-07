@@ -295,9 +295,7 @@ def clear_old_research(research, period):
 
 ################ 종목, ETF코드 업데이트 #################
 def code_update():
-    stocks = fdr.StockListing('KRX')
-    stocks = stocks.loc[:, ['Name', 'Code']]
-    stocks.columns = ['Name', 'Symbol']
+    stocks = load_KRX_code_Stock()
     stocks.loc[:, 'Type'] = 'Stock'
 
     etfs = fdr.StockListing('ETF/KR')
@@ -308,6 +306,26 @@ def code_update():
 
     return code_list.reset_index(drop=True)
 
+def load_KRX_code_Stock():
+    otp_url = 'http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd'
+    otp_params = {
+        'locale': 'ko_KR',
+        'mktId': 'ALL',
+        'share': '1',
+        'csvxls_isNo': 'false',
+        'name': 'fileDown',
+        'url': 'dbms/MDC/STAT/standard/MDCSTAT01901'
+    }
+    headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader'}
+    otp = requests.post(otp_url, params=otp_params, headers=headers).text
+    down_url = 'http://data.krx.co.kr/comm/fileDn/download_csv/download.cmd'
+    down_params = {'code': otp}
+    response = requests.post(down_url, params=down_params, headers=headers)
+    data = pd.read_csv(io.BytesIO(response.content), encoding='euc-kr', dtype={'단축코드': 'string'})
+    data = data[['단축코드', '한글 종목약명']]
+    data.columns = ['Name', 'Symbol']
+
+    return data
 
 def codeListing():
     otp_url = 'http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd'
