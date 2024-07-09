@@ -355,7 +355,8 @@ def codeListing():
 
 ############################### ETF PDF 크롤링################################
 def PDFListing(isuCd, code, name, date):
-    headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader'}
+    headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader',
+               'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'}
 
     otp_url = 'http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd'
     otp_params = {
