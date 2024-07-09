@@ -336,7 +336,9 @@ def codeListing():
         'name': 'fileDown',
         'url': 'dbms/MDC/STAT/standard/MDCSTAT04601'
     }
-    headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader'}
+    headers = {'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader',
+               'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'}
+
     otp = requests.post(otp_url, params=otp_params, headers=headers).text
 
     down_url = 'http://data.krx.co.kr/comm/fileDn/download_csv/download.cmd'
